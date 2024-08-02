@@ -1,0 +1,180 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "cachename": {
+            "defaultValue": "myAMRcache",
+            "type": "String",
+            "metadata": {
+                "description": "Name of the cache. Note that the prefix 'amrcache' will be added to the name, plus a random string for uniqueness"
+            }
+        },
+        "SKU": {
+            "defaultValue": "GeneralPurpose_G3",
+            "allowedValues": [
+            "GeneralPurpose_G3",
+            "GeneralPurpose_G5",
+            "GeneralPurpose_G10",
+            "GeneralPurpose_G20",
+            "GeneralPurpose_G50",
+            "GeneralPurpose_G100",
+            "GeneralPurpose_G150",
+            "GeneralPurpose_G250",
+            "GeneralPurpose_G350",
+            "GeneralPurpose_G500",
+            "GeneralPurpose_G700",
+            "GeneralPurpose_G1000",
+            "MemoryOptimized_M10",
+            "MemoryOptimized_M20",
+            "MemoryOptimized_M50",
+            "MemoryOptimized_M100",
+            "MemoryOptimized_M150",
+            "MemoryOptimized_M250",
+            "MemoryOptimized_M350",
+            "MemoryOptimized_M500",
+            "MemoryOptimized_M700",
+            "MemoryOptimized_M1000",
+            "MemoryOptimized_M1500",
+            "MemoryOptimized_M2000",
+            "ComputeOptimized_X3",
+            "ComputeOptimized_X5",
+            "ComputeOptimized_X10",
+            "ComputeOptimized_X20",
+            "ComputeOptimized_X50",
+            "ComputeOptimized_X100",
+            "ComputeOptimized_X150",
+            "ComputeOptimized_X250",
+            "ComputeOptimized_X350",
+            "ComputeOptimized_X500",
+            "ComputeOptimized_X700",
+            "AutoTiering_A250",
+            "AutoTiering_A500",
+            "AutoTiering_A700",
+            "AutoTiering_A1000",
+            "AutoTiering_A1500",
+            "AutoTiering_A2000",
+            "AutoTiering_A4500"],
+            "type": "String"
+        },
+        "highavailability": {
+            "defaultValue": "Enabled",
+            "allowedValues": [
+                "Enabled",
+                "Disabled"
+            ],
+            "type": "String"
+        },
+        "clusterpolicy": {
+            "defaultValue": "OSSCluster",
+            "allowedValues": [
+                "OSSCluster",
+                "EnterpriseCluster"
+            ],
+            "type": "String"
+        },
+        "RediSearch": {
+            "defaultValue": "No",
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "type": "String"
+        },
+        "RedisBloom": {
+            "defaultValue": "Yes",
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "type": "String"
+        },
+        "RedisJSON": {
+            "defaultValue": "Yes",
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "type": "String"
+        },
+        "RedisTimeSeries": {
+            "defaultValue": "Yes",
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "type": "String"
+        }
+    },
+    "variables": {
+        "region": "[resourceGroup().location]",
+        "uniqueString": "[substring(uniqueString(resourceGroup().id), 0, 6)]",
+        "prefix": "amrcache",
+        "finalcachename": "[concat(parameters('cachename'), '-', variables('prefix'), '-', variables('uniqueString'))]",
+        "modules": [
+            {"name": "RediSearch", "value": "[parameters('RediSearch')]"},
+            {"name": "RedisBloom", "value": "[parameters('RedisBloom')]"},
+            {"name": "RedisJSON", "value": "[parameters('RedisJSON')]"},
+            {"name": "RedisTimeSeries", "value": "[parameters('RedisTimeSeries')]"}
+        ],
+        "filteredmodules": "[filter(variables('modules'), lambda('item', equals(lambdaVariables('item').value, 'Yes')))]",
+        "modulenames": "[map(range(0, length(variables('filteredmodules'))), lambda('name', createObject('name', variables('filteredmodules')[lambdaVariables('name')].name)))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Cache/redisEnterprise",
+            "apiVersion": "2024-05-01-preview",
+            "name": "[variables('finalcachename')]",
+            "location": "[variables('region')]",
+            "tags": {
+                "amrcache": "true"
+            },
+            "sku": {
+                "name": "[parameters('SKU')]"
+            },
+            "identity": {
+                "type": "None"
+            },
+            "properties": {
+                "minimumTlsVersion": "1.2",
+                "highAvailability": "[parameters('highavailability')]"
+            }
+        },
+        {
+            "type": "Microsoft.Cache/redisEnterprise/databases",
+            "apiVersion": "2024-05-01-preview",
+            "name": "[concat(variables('finalcachename'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Cache/redisEnterprise', variables('finalcachename'))]"
+            ],
+            "properties": {
+                "clientProtocol": "Encrypted",
+                "port": 10000,
+                "clusteringPolicy": "[parameters('clusterpolicy')]",
+                "modules": "[variables('modulenames')]",
+                "evictionPolicy": "NoEviction",
+                "persistence": {
+                    "aofEnabled": false,
+                    "rdbEnabled": false
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "cacheName": {
+            "type": "string",
+            "value": "[variables('finalcachename')]"
+        },
+        "cacheResourceGroup": {
+            "type": "string",
+            "value": "[resourceGroup().name]"
+        },
+        "cacheLocation": {
+            "type": "string",
+            "value": "[variables('region')]"
+        },
+        "modulenames": {
+            "type": "array",
+            "value": "[variables('modulenames')]"
+        }
+    }
+}
