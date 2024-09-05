@@ -12,6 +12,8 @@
         "SKU": {
             "defaultValue": "GeneralPurpose_G3",
             "allowedValues": [
+            "GeneralPurpose_G0",
+            "GeneralPurpose_G1",
             "GeneralPurpose_G3",
             "GeneralPurpose_G5",
             "GeneralPurpose_G10",
@@ -61,6 +63,14 @@
             "allowedValues": [
                 "Enabled",
                 "Disabled"
+            ],
+            "type": "String"
+        },
+        "encryption": {
+            "defaultValue": "Encrypted",
+            "allowedValues": [
+                "Encrypted",
+                "Plaintext"
             ],
             "type": "String"
         },
@@ -147,7 +157,7 @@
                 "[resourceId('Microsoft.Cache/redisEnterprise', variables('finalcachename'))]"
             ],
             "properties": {
-                "clientProtocol": "Encrypted",
+                "clientProtocol": "[parameters('encryption')]",
                 "port": 10000,
                 "clusteringPolicy": "[parameters('clusterpolicy')]",
                 "modules": "[variables('modulenames')]",
